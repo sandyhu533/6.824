@@ -82,12 +82,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.LeaderCommit > rf.commitIndex {
 		originCommitIndex := rf.commitIndex
 		rf.commitIndex = min(args.LeaderCommit, len(rf.log) - 1)
-		if rf.commitIndex == originCommitIndex + 1 {
-			DPrintf("[%d][AppendEntries] %d committed!, term %d", rf.me, rf.commitIndex, rf.log[rf.commitIndex].Term)
+		DPrintf("[%d][AppendEntries] originCommitIndex: %d  newCommitIndex: %d", rf.me, originCommitIndex, rf.commitIndex)
+		for i := originCommitIndex + 1; i <= rf.commitIndex; i++ {
+			DPrintf("[%d][AppendEntries] %d committed!, term %d", rf.me, i, rf.log[i].Term)
 			msg := ApplyMsg{
 				CommandValid: true,
-				Command:      rf.log[rf.commitIndex].Command,
-				CommandIndex: rf.commitIndex,
+				Command:      rf.log[i].Command,
+				CommandIndex: i,
 			}
 			rf.applyCh <- msg
 		}

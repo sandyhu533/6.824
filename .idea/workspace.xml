@@ -20,12 +20,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="81855c97-b3b6-461e-b84d-0adfaf4cafb4" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/raft/candidate.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/follower.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/leader.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/raft/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/config.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/raft/raft.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/raft.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/follower.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/follower.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/out" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/out" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/util.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/util.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
