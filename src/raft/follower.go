@@ -59,7 +59,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	//  Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
-	if args.PrevLogTerm >= len(rf.log) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
+	if args.PrevLogIndex >= len(rf.log) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
 		//DPrintf("[%d][AppendEntries] Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm",
 		//	rf.me)
 		return
@@ -77,27 +77,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	rf.lastHeatBeatTime = time.Now()
-
-	// update commit
-	if args.LeaderCommit > rf.commitIndex {
-		originCommitIndex := rf.commitIndex
-		rf.commitIndex = min(args.LeaderCommit, len(rf.log) - 1)
-		DPrintf("[%d][AppendEntries] originCommitIndex: %d  newCommitIndex: %d", rf.me, originCommitIndex, rf.commitIndex)
-		for i := originCommitIndex + 1; i <= rf.commitIndex; i++ {
-			DPrintf("[%d][AppendEntries] %d committed!, term %d", rf.me, i, rf.log[i].Term)
-			msg := ApplyMsg{
-				CommandValid: true,
-				Command:      rf.log[i].Command,
-				CommandIndex: i,
-			}
-			rf.applyCh <- msg
-		}
-	}
-
-	// heartbeats
-	if args.Entries == nil {
-		return
-	}
 
 	// update logs
 	for _, v := range args.Entries {
@@ -124,7 +103,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		str += "], "
 	}
 
-	DPrintf("[%d][AppendEntries] reply success, entries: %s", rf.me, str)
+	// heartbeats
+	if args.Entries != nil {
+		DPrintf("[%d][AppendEntries] reply success, entries: %s", rf.me, str)
+	}
+
 
 	str = ""
 	for _, v := range rf.log {
@@ -137,6 +120,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	DPrintf("[%d][AppendEntries] reply success, log: %s", rf.me, str)
 
+	// update commit
+	if args.LeaderCommit > rf.commitIndex {
+		originCommitIndex := rf.commitIndex
+		rf.commitIndex = min(args.LeaderCommit, len(rf.log) - 1)
+		DPrintf("[%d][AppendEntries] originCommitIndex: %d  newCommitIndex: %d", rf.me, originCommitIndex, rf.commitIndex)
+		for i := originCommitIndex + 1; i <= rf.commitIndex; i++ {
+			DPrintf("[%d][AppendEntries] %d committed!, term %d", rf.me, i, rf.log[i].Term)
+			msg := ApplyMsg{
+				CommandValid: true,
+				Command:      rf.log[i].Command,
+				CommandIndex: i,
+			}
+			rf.applyCh <- msg
+		}
+	}
 }
 
 

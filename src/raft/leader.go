@@ -26,9 +26,7 @@ func (rf *Raft) leaderInit(me int, term int) {
 	// to send to that server (initialized to leader
 	// last log index + 1)
 	for i, _ := range rf.nextIndex {
-		rf.nextIndex[i] = 1
-		// DEBUG
-			// len(rf.log)
+		rf.nextIndex[i] = len(rf.log)
 	}
 	// for each server, index of highest log entry
 	//known to be replicated on server
@@ -39,40 +37,40 @@ func (rf *Raft) leaderInit(me int, term int) {
 	go rf.sendHeartBeat(me, term)
 }
 
-func (rf *Raft) sendNewLogToClient(me int, term int) {
-	for i, _ := range rf.peers {
-		if i == rf.me {
-			continue
-		}
-		if len(rf.log) > rf.nextIndex[i] {
-			args := AppendEntriesArgs{}
-			args.Term = term
-			args.LeaderId = me
-			args.PrevLogIndex = rf.nextIndex[i] - 1
-			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
-			args.Entries = rf.log[rf.nextIndex[i]:]
-			args.LeaderCommit = rf.commitIndex
-
-			reply := AppendEntriesReply{}
-
-			go rf.sendAppendEntries(me, i, term, &args, &reply)
-
-			rf.mu.Lock()
-
-			// If AppendEntries RPC received from new leader: convert to follower
-			if rf.role != RoleLeader || term < rf.currentTerm {
-				rf.mu.Unlock()
-				return
-			}
-
-			if rf.killed() {
-				return
-			}
-
-			rf.mu.Unlock()
-		}
-	}
-}
+//func (rf *Raft) sendNewLogToClient(me int, term int) {
+//	for i, _ := range rf.peers {
+//		if i == rf.me {
+//			continue
+//		}
+//		if len(rf.log) > rf.nextIndex[i] {
+//			args := AppendEntriesArgs{}
+//			args.Term = term
+//			args.LeaderId = me
+//			args.PrevLogIndex = rf.nextIndex[i] - 1
+//			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
+//			args.Entries = rf.log[rf.nextIndex[i]:]
+//			args.LeaderCommit = rf.commitIndex
+//
+//			reply := AppendEntriesReply{}
+//
+//			go rf.sendAppendEntries(me, i, term, &args, &reply)
+//
+//			rf.mu.Lock()
+//
+//			// If AppendEntries RPC received from new leader: convert to follower
+//			if rf.role != RoleLeader || term < rf.currentTerm {
+//				rf.mu.Unlock()
+//				return
+//			}
+//
+//			if rf.killed() {
+//				return
+//			}
+//
+//			rf.mu.Unlock()
+//		}
+//	}
+//}
 
 func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	//DPrintf("[%d][sendAppendEntries] send append entry to %d", me, i)
@@ -93,6 +91,8 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 				errors.New("next index go down to 0")
 				return ok
 			}
+			rf.mu.Lock()
+
 			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i])
 			rf.nextIndex[i]--
 			args := AppendEntriesArgs{}
@@ -106,10 +106,13 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 			reply := AppendEntriesReply{}
 
 			go rf.sendAppendEntries(me, i, term, &args, &reply)
+
+			rf.mu.Unlock()
 		}
 	} else {
 		//DPrintf("[%d][sendAppendEntries] append entry to %d", me, i)
 		if len(args.Entries) >= 1 {
+			rf.mu.Lock()
 			DPrintf("[%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, i, args.Entries[len(args.Entries) - 1].Index)
 			rf.nextIndex[i] = args.Entries[len(args.Entries) - 1].Index + 1
 			rf.matchIndex[i] = args.Entries[len(args.Entries) - 1].Index
@@ -135,6 +138,7 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 					break
 				}
 			}
+			rf.mu.Unlock()
 		}
 	}
 
@@ -150,11 +154,13 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 	for {
 		str := ""
 		for i, _ := range rf.nextIndex {
+			rf.mu.Lock()
 			str += "[n:"
 			str += strconv.Itoa(rf.nextIndex[i])
 			str += ", m:"
 			str += strconv.Itoa(rf.matchIndex[i])
 			str += "], "
+			rf.mu.Unlock()
 		}
 		//DPrintf("[%d][sendHeartBeat] send heart beat %s", me, str)
 		for i, _ := range rf.peers {

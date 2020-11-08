@@ -232,9 +232,6 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
 	index := -1
 	term := -1
 	isLeader := rf.role == RoleLeader
@@ -255,11 +252,14 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Term:    term,
 		Index:   index,
 	}
+
+	rf.mu.Lock()
 	rf.log = append(rf.log, entry)
 	rf.matchIndex[rf.me] = len(rf.log) - 1
 	rf.nextIndex[rf.me] = len(rf.log)
+	rf.mu.Unlock()
 
-	go rf.sendNewLogToClient(rf.me, term)
+	//go rf.sendNewLogToClient(rf.me, term)
 
 	return index, term, isLeader
 }
