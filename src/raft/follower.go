@@ -28,18 +28,25 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// and candidate’s log is at least as up-to-date as receiver’s log, grant vote
 	selfLastLogIndex := rf.log[len(rf.log) - 1].Index
 	selfLastLogTerm := rf.log[len(rf.log) - 1].Term
-	DPrintf("[%d][RequestVote] selfLastLog: [%d, %d] candidateLastLog: [%d, %d], voteFor: %d",
-		rf.me, selfLastLogIndex, selfLastLogTerm, args.LastLogIndex, args.LastLogTerm, rf.voteFor)
-	if (args.Term > rf.currentTerm || rf.voteFor == -1 || rf.voteFor == args.CandidateId) &&
-		((args.LastLogTerm > selfLastLogTerm) ||
+	DPrintf("[%d][RequestVote] selfLastLog: [%d, %d] candidateLastLog: [%d, %d], voteFor: %d, args.Term: %d, rf.term: %d",
+		rf.me, selfLastLogIndex, selfLastLogTerm, args.LastLogIndex, args.LastLogTerm, rf.voteFor, args.Term, rf.currentTerm)
+	if (args.Term > rf.currentTerm ||  rf.voteFor == -1 || rf.voteFor == args.CandidateId) &&
+		(args.LastLogTerm > selfLastLogTerm ||
 			(args.LastLogTerm == selfLastLogTerm && args.LastLogIndex >= selfLastLogIndex)) {
 		reply.VoteGranted = true
 		rf.voteFor = args.CandidateId
+		rf.currentTerm = args.Term
 		DPrintf("[%d][RequestVote] %d vote for %d", rf.me, rf.me, rf.voteFor)
 
 		if args.CandidateId != rf.me {
 			rf.role = RoleFollower
 		}
+	}
+
+	// if a new candidate's log is older than self's (result in not vote)
+	// still update self's term to keep up-to-date
+	if (args.Term > rf.currentTerm) {
+		rf.currentTerm = args.Term
 	}
 }
 
@@ -47,7 +54,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
 
 	// Reply false if term < currentTerm (§5.1)
 	reply.Term = rf.currentTerm
@@ -126,7 +132,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.commitIndex = min(args.LeaderCommit, len(rf.log) - 1)
 		DPrintf("[%d][AppendEntries] originCommitIndex: %d  newCommitIndex: %d", rf.me, originCommitIndex, rf.commitIndex)
 		for i := originCommitIndex + 1; i <= rf.commitIndex; i++ {
-			DPrintf("[%d][AppendEntries] %d committed!, term %d", rf.me, i, rf.log[i].Term)
+			DPrintf("[%d][AppendEntries] %d committed!, term %d, cmd %v", rf.me, i, rf.log[i].Term, rf.log[i].Command)
 			msg := ApplyMsg{
 				CommandValid: true,
 				Command:      rf.log[i].Command,
@@ -135,6 +141,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.applyCh <- msg
 		}
 	}
+
+	rf.mu.Unlock()
 }
 
 

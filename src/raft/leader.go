@@ -37,41 +37,6 @@ func (rf *Raft) leaderInit(me int, term int) {
 	go rf.sendHeartBeat(me, term)
 }
 
-//func (rf *Raft) sendNewLogToClient(me int, term int) {
-//	for i, _ := range rf.peers {
-//		if i == rf.me {
-//			continue
-//		}
-//		if len(rf.log) > rf.nextIndex[i] {
-//			args := AppendEntriesArgs{}
-//			args.Term = term
-//			args.LeaderId = me
-//			args.PrevLogIndex = rf.nextIndex[i] - 1
-//			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
-//			args.Entries = rf.log[rf.nextIndex[i]:]
-//			args.LeaderCommit = rf.commitIndex
-//
-//			reply := AppendEntriesReply{}
-//
-//			go rf.sendAppendEntries(me, i, term, &args, &reply)
-//
-//			rf.mu.Lock()
-//
-//			// If AppendEntries RPC received from new leader: convert to follower
-//			if rf.role != RoleLeader || term < rf.currentTerm {
-//				rf.mu.Unlock()
-//				return
-//			}
-//
-//			if rf.killed() {
-//				return
-//			}
-//
-//			rf.mu.Unlock()
-//		}
-//	}
-//}
-
 func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	//DPrintf("[%d][sendAppendEntries] send append entry to %d", me, i)
 
@@ -127,7 +92,8 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 				if ct * 2 > len(rf.peers){
 					// respond after entry applied to state machine (§5.3)
 					rf.commitIndex++
-					DPrintf("[%d][sendAppendEntries] %d committed!, term %d", rf.me, rf.commitIndex, rf.log[rf.commitIndex].Term)
+					DPrintf("[%d][sendAppendEntries] %d committed!, term %d, cmd: %v", rf.me, rf.commitIndex,
+						rf.log[rf.commitIndex].Term, rf.log[rf.commitIndex].Command)
 					msg := ApplyMsg{
 						CommandValid: true,
 						Command:      rf.log[rf.commitIndex].Command,
@@ -153,30 +119,16 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 	DPrintf("[%d][sendHeartBeat] do leader", me)
 	for {
 		str := ""
+		rf.mu.Lock()
 		for i, _ := range rf.nextIndex {
-			rf.mu.Lock()
 			str += "[n:"
 			str += strconv.Itoa(rf.nextIndex[i])
 			str += ", m:"
 			str += strconv.Itoa(rf.matchIndex[i])
 			str += "], "
-			rf.mu.Unlock()
 		}
-		//DPrintf("[%d][sendHeartBeat] send heart beat %s", me, str)
+		DPrintf("[%d][sendHeartBeat] send heart beat %s", me, str)
 		for i, _ := range rf.peers {
-			args := AppendEntriesArgs{}
-			args.Term = term
-			args.LeaderId = me
-			args.PrevLogIndex = rf.nextIndex[i] - 1
-			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
-			args.Entries = rf.log[rf.nextIndex[i]:]
-			args.LeaderCommit = rf.commitIndex
-
-			reply := AppendEntriesReply{}
-
-			go rf.sendAppendEntries(me, i, term, &args, &reply)
-
-			rf.mu.Lock()
 
 			// If AppendEntries RPC received from new leader: convert to follower
 			if rf.role != RoleLeader || term < rf.currentTerm {
@@ -188,8 +140,19 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 				return
 			}
 
-			rf.mu.Unlock()
+			args := AppendEntriesArgs{}
+			args.Term = term
+			args.LeaderId = me
+			args.PrevLogIndex = rf.nextIndex[i] - 1
+			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
+			args.Entries = rf.log[rf.nextIndex[i]:]
+			args.LeaderCommit = rf.commitIndex
+
+			reply := AppendEntriesReply{}
+
+			go rf.sendAppendEntries(me, i, term, &args, &reply)
 		}
+		rf.mu.Unlock()
 		time.Sleep(time.Millisecond * time.Duration(HeatBeatRate))
 	}
 

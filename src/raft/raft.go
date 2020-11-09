@@ -181,20 +181,20 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 
 		electionTimeout := rand.Int63n(MaxElectionTimeOut - MinElectionTimeOut) + MinElectionTimeOut
 		lastHeartBeatTime := rf.lastHeatBeatTime
-		term := rf.currentTerm
+		//term := rf.currentTerm
 		rf.mu.Unlock()
 
 		DPrintf("[%d][tryConvertToCandidate] sleep for(electionTimeout): %d", me, electionTimeout)
 
 		time.Sleep(time.Millisecond * time.Duration(electionTimeout))
 
-		rf.mu.Lock()
-
 		if rf.killed() {
 			return
 		}
 
-		if rf.currentTerm > term || rf.role == RoleLeader || !rf.lastHeatBeatTime.Equal(lastHeartBeatTime){
+		rf.mu.Lock()
+
+		if rf.role == RoleLeader || !rf.lastHeatBeatTime.Equal(lastHeartBeatTime){
 			DPrintf("[%d][tryConvertToCandidate] give up: %d", me, electionTimeout)
 			rf.mu.Unlock()
 			continue
@@ -232,6 +232,9 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	index := -1
 	term := -1
 	isLeader := rf.role == RoleLeader
@@ -243,7 +246,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	// is leader
 	index = len(rf.log)
 	term = rf.currentTerm
-	DPrintf("[%d][Start] new log with index: %d term: %d", rf.me, index, term)
+	DPrintf("[%d][Start] new log with index: %d term: %d cmd: %v", rf.me, index, term, command)
 
 	// If Command received from client: append entry to local log,
 	//respond after entry applied to state machine (§5.3)
@@ -253,11 +256,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Index:   index,
 	}
 
-	rf.mu.Lock()
 	rf.log = append(rf.log, entry)
 	rf.matchIndex[rf.me] = len(rf.log) - 1
 	rf.nextIndex[rf.me] = len(rf.log)
-	rf.mu.Unlock()
 
 	//go rf.sendNewLogToClient(rf.me, term)
 
@@ -278,7 +279,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
 	rf.mu.Lock()
-	rf.mu.Unlock()
+	defer rf.mu.Unlock()
 	DPrintf("[%d][Kill] killed", rf.me)
 	atomic.StoreInt32(&rf.dead, 1)
 }
