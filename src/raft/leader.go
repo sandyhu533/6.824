@@ -63,22 +63,20 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 				return ok
 			}
 
-			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i] - 1)
-			rf.nextIndex[i]--
+			//DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i] - 1)
+			//rf.nextIndex[i]--
 
-			//// term 0 isn't a valid term, so don't do any reduce
-			//if reply.FLastLogTerm != 0 {
-			//	if reply.FLastLogIndex < len(rf.Log) && rf.Log[reply.FLastLogIndex].Term == reply.FLastLogTerm {
-			//		rf.nextIndex[i] = reply.FLastLogIndex + 1
-			//	} else {
-			//		ni := rf.nextIndex[i] - 1
-			//		for rf.Log[ni].Term == rf.Log[rf.nextIndex[i] - 1].Term {
-			//			ni--
-			//		}
-			//		rf.nextIndex[i] = ni + 1
-			//	}
-			//	DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i])
-			//}
+			// term 0 isn't a valid term, so don't do any reduce
+			if reply.FLastLogIndex < len(rf.Log) && rf.Log[reply.FLastLogIndex].Term == reply.FLastLogTerm {
+				rf.nextIndex[i] = reply.FLastLogIndex + 1
+			} else {
+				ni := rf.nextIndex[i] - 1
+				for rf.Log[ni].Term == rf.Log[rf.nextIndex[i] - 1].Term {
+					ni--
+				}
+				rf.nextIndex[i] = ni + 1
+			}
+			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i])
 
 			args := AppendEntriesArgs{}
 			args.Term = term

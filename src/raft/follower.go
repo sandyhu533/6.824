@@ -80,7 +80,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	//  Reply false if Log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
+	//  Reply false if Log doesn't contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
 	selfLastLogIndex := rf.Log[len(rf.Log) - 1].Index
 	selfLastLogTerm := rf.Log[len(rf.Log) - 1].Term
 	if args.PrevLogIndex >= len(rf.Log) || rf.Log[args.PrevLogIndex].Term != args.PrevLogTerm {
@@ -110,8 +110,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			// Append any new entries not already in the Log
 			rf.Log = append(rf.Log, v)
 		}
-		rf.persist()
 	}
+	rf.persist()
 
 	str := ""
 	for _, v := range args.Entries {
