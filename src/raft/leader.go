@@ -8,8 +8,8 @@ import (
 
 type AppendEntriesArgs struct {
 	Term, LeaderId int
-	PrevLogIndex, PrevLogTerm int // Index and Term of log entry immediately preceding new ones
-	Entries []LogEntry // log entries to store (empty for heartbeat)
+	PrevLogIndex, PrevLogTerm int // Index and Term of Log entry immediately preceding new ones
+	Entries []LogEntry // Log entries to store (empty for heartbeat)
 	LeaderCommit int // leader's commitIndex
 }
 
@@ -20,15 +20,15 @@ type AppendEntriesReply struct {
 
 func (rf *Raft) leaderInit(me int, term int) {
 	rf.role = RoleLeader
-	rf.voteFor = -1
+	rf.VoteFor = -1
 	rf.lastHeatBeatTime = time.Now()
-	// for each server, index of the next log entry
+	// for each server, index of the next Log entry
 	// to send to that server (initialized to leader
-	// last log index + 1)
+	// last Log index + 1)
 	for i, _ := range rf.nextIndex {
-		rf.nextIndex[i] = len(rf.log)
+		rf.nextIndex[i] = len(rf.Log)
 	}
-	// for each server, index of highest log entry
+	// for each server, index of highest Log entry
 	//known to be replicated on server
 	//(initialized to 0, increases monotonically)
 	for i, _ := range rf.matchIndex {
@@ -42,8 +42,8 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 
 	ok := rf.peers[i].Call("Raft.AppendEntries", args, reply)
 
-	// If RPC request or response contains term T > currentTerm:
-	// set currentTerm = T, convert to follower (§5.1)
+	// If RPC request or response contains term T > CurrentTerm:
+	// set CurrentTerm = T, convert to follower (§5.1)
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -66,8 +66,8 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 			args.Term = term
 			args.LeaderId = me
 			args.PrevLogIndex = rf.nextIndex[i] - 1
-			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
-			args.Entries = rf.log[rf.nextIndex[i]:]
+			args.PrevLogTerm = rf.Log[args.PrevLogIndex].Term
+			args.Entries = rf.Log[rf.nextIndex[i]:]
 			args.LeaderCommit = rf.commitIndex
 
 			reply := AppendEntriesReply{}
@@ -92,10 +92,10 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 					// respond after entry applied to state machine (§5.3)
 					rf.commitIndex++
 					DPrintf("[%d][sendAppendEntries] %d committed!, term %d, cmd: %v", rf.me, rf.commitIndex,
-						rf.log[rf.commitIndex].Term, rf.log[rf.commitIndex].Command)
+						rf.Log[rf.commitIndex].Term, rf.Log[rf.commitIndex].Command)
 					msg := ApplyMsg{
 						CommandValid: true,
-						Command:      rf.log[rf.commitIndex].Command,
+						Command:      rf.Log[rf.commitIndex].Command,
 						CommandIndex: rf.commitIndex,
 					}
 					rf.applyCh <- msg
@@ -129,7 +129,7 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 		for i, _ := range rf.peers {
 
 			// If AppendEntries RPC received from new leader: convert to follower
-			if rf.role != RoleLeader || term < rf.currentTerm {
+			if rf.role != RoleLeader || term < rf.CurrentTerm {
 				rf.mu.Unlock()
 				return
 			}
@@ -143,8 +143,8 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 			args.Term = term
 			args.LeaderId = me
 			args.PrevLogIndex = rf.nextIndex[i] - 1
-			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
-			args.Entries = rf.log[rf.nextIndex[i]:]
+			args.PrevLogTerm = rf.Log[args.PrevLogIndex].Term
+			args.Entries = rf.Log[rf.nextIndex[i]:]
 			args.LeaderCommit = rf.commitIndex
 
 			reply := AppendEntriesReply{}

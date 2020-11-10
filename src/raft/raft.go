@@ -8,11 +8,11 @@ package raft
 // rf = Make(...)
 //   create a new Raft server.
 // rf.Start(Command interface{}) (Index, Term, isleader)
-//   start agreement on a new log entry
+//   start agreement on a new Log entry
 // rf.GetState() (Term, isLeader)
 //   ask a Raft for its current Term, and whether it thinks it is leader
 // ApplyMsg
-//   each time a new entry is committed to the log, each Raft peer
+//   each time a new entry is committed to the Log, each Raft peer
 //   should send an ApplyMsg to the service (or tester)
 //   in the same server.
 //
@@ -30,11 +30,11 @@ import "../labrpc"
 
 
 //
-// as each Raft peer becomes aware that successive log entries are
+// as each Raft peer becomes aware that successive Log entries are
 // committed, the peer should send an ApplyMsg to the service (or
 // tester) on the same server, via the applyCh passed to Make(). set
 // CommandValid to true to indicate that the ApplyMsg contains a newly
-// committed log entry.
+// committed Log entry.
 //
 // in Lab 3 you'll want to send other kinds of messages (e.g.,
 // snapshots) on the applyCh; at that point you can add fields to
@@ -78,19 +78,20 @@ type Raft struct {
 	lastHeatBeatTime time.Time
 	applyCh chan ApplyMsg
 
-	currentTerm int
-	voteFor int
-	log []LogEntry
+	// persistent state
+	CurrentTerm int
+	VoteFor     int
+	Log         []LogEntry
 
-	commitIndex int // Index of highest log entry known to be committed
-	lastApplied int // Index of highest log entry applied to state machine
+	commitIndex int // Index of highest Log entry known to be committed
+	lastApplied int // Index of highest Log entry applied to state machine
 
 	// As Candidate
 	candidateVoteCount int
 
 	// As Leader
-	nextIndex []int // for each server, Index of the next log entry to send to that server
-	matchIndex []int // for each server, Index of highest log entry known to be replicated on server
+	nextIndex []int  // for each server, Index of the next Log entry to send to that server
+	matchIndex []int // for each server, Index of highest Log entry known to be replicated on server
 }
 
 type LogEntry struct {
@@ -99,7 +100,7 @@ type LogEntry struct {
 	Index   int
 }
 
-// return currentTerm and whether this server
+// return CurrentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
 
@@ -107,7 +108,7 @@ func (rf *Raft) GetState() (int, bool) {
 	var isLeader bool
 	// Your code here (2A).
 	rf.mu.Lock()
-	term = rf.currentTerm
+	term = rf.CurrentTerm
 	isLeader = rf.role == RoleLeader
 	DPrintf("[%d][GetState] Term:%d role:%d", rf.me, term, rf.role)
 	rf.mu.Unlock()
@@ -158,9 +159,9 @@ func (rf *Raft) readPersist(data []byte) {
 func (rf *Raft) tryConvertToFollower(me int, term int, nTerm int) {
 	if nTerm > term {
 		DPrintf("[%d][tryConvertToFollower] do follower", me)
-		rf.currentTerm = nTerm
+		rf.CurrentTerm = nTerm
 		rf.role = RoleFollower
-		rf.voteFor = -1
+		rf.VoteFor = -1
 	}
 }
 
@@ -178,7 +179,7 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 
 		electionTimeout := rand.Int63n(MaxElectionTimeOut - MinElectionTimeOut) + MinElectionTimeOut
 		lastHeartBeatTime := rf.lastHeatBeatTime
-		//term := rf.currentTerm
+		//term := rf.CurrentTerm
 		rf.mu.Unlock()
 
 		DPrintf("[%d][tryConvertToCandidate] sleep for(electionTimeout): %d", me, electionTimeout)
@@ -200,15 +201,15 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 		if rf.lastHeatBeatTime.Equal(lastHeartBeatTime) {
 			DPrintf("[%d][tryConvertToCandidate] try candidate(wake up): %d", me, electionTimeout)
 			// On conversion to candidate, start election:
-			//• Increment currentTerm
+			//• Increment CurrentTerm
 			//• Vote for self
 			//• Reset election timer
 			//• Send RequestVote RPCs to all other servers
 			rf.role = RoleCandidate
-			rf.voteFor = me
-			rf.currentTerm = rf.currentTerm + 1
+			rf.VoteFor = me
+			rf.CurrentTerm = rf.CurrentTerm + 1
 			rf.lastHeatBeatTime = time.Now()
-			go rf.gatherVotes(me, rf.currentTerm)
+			go rf.gatherVotes(me, rf.CurrentTerm)
 		}
 		rf.mu.Unlock()
 	}
@@ -216,10 +217,10 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 
 //
 // the service using Raft (e.g. a k/v server) wants to start
-// agreement on the next Command to be appended to Raft's log. if this
+// agreement on the next Command to be appended to Raft's Log. if this
 // server isn't the leader, returns false. otherwise start the
 // agreement and return immediately. there is no guarantee that this
-// Command will ever be committed to the Raft log, since the leader
+// Command will ever be committed to the Raft Log, since the leader
 // may fail or lose an election. even if the Raft instance has been killed,
 // this function should return gracefully.
 //
@@ -241,11 +242,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 
 	// is leader
-	index = len(rf.log)
-	term = rf.currentTerm
-	DPrintf("[%d][Start] new log with index: %d term: %d cmd: %v", rf.me, index, term, command)
+	index = len(rf.Log)
+	term = rf.CurrentTerm
+	DPrintf("[%d][Start] new Log with index: %d term: %d cmd: %v", rf.me, index, term, command)
 
-	// If Command received from client: append entry to local log,
+	// If Command received from client: append entry to local Log,
 	//respond after entry applied to state machine (§5.3)
 	entry := LogEntry{
 		Command: command,
@@ -253,9 +254,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Index:   index,
 	}
 
-	rf.log = append(rf.log, entry)
-	rf.matchIndex[rf.me] = len(rf.log) - 1
-	rf.nextIndex[rf.me] = len(rf.log)
+	rf.Log = append(rf.Log, entry)
+	rf.matchIndex[rf.me] = len(rf.Log) - 1
+	rf.nextIndex[rf.me] = len(rf.Log)
 
 	//go rf.sendNewLogToClient(rf.me, term)
 
@@ -306,15 +307,15 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// Your initialization code here (2A, 2B, 2C).
 	rf.mu = sync.Mutex{}
-	rf.voteFor = -1
-	rf.currentTerm = 0
+	rf.VoteFor = -1
+	rf.CurrentTerm = 0
 	rf.lastHeatBeatTime = time.Now()
 	rf.role = RoleFollower
 	rf.candidateVoteCount = 0
 
 	// append an default entry to avoid boundary error
-	rf.log = []LogEntry{}
-	rf.log = append(rf.log, LogEntry{
+	rf.Log = []LogEntry{}
+	rf.Log = append(rf.Log, LogEntry{
 		Term:  0,
 		Index: 0,
 	})

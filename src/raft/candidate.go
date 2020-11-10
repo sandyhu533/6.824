@@ -3,7 +3,7 @@ package raft
 type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
 	Term, CandidateId int
-	LastLogIndex, LastLogTerm int // Index and Term of candidate's last log entry
+	LastLogIndex, LastLogTerm int // Index and Term of candidate's last Log entry
 }
 
 type RequestVoteReply struct {
@@ -44,8 +44,8 @@ type RequestVoteReply struct {
 func (rf *Raft) sendRequestVote(me int, toPeer int, term int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
 	DPrintf("[%d][sendRequestVote] send request vote to %d", me, toPeer)
 	ok := rf.peers[toPeer].Call("Raft.RequestVote", args, reply)
-	// If RPC request or response contains Term T > currentTerm:
-	// set currentTerm = T, convert to follower (§5.1)
+	// If RPC request or response contains Term T > CurrentTerm:
+	// set CurrentTerm = T, convert to follower (§5.1)
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -57,7 +57,7 @@ func (rf *Raft) sendRequestVote(me int, toPeer int, term int, args *RequestVoteA
 		DPrintf("[%d][sendRequestVote] received vote from %d", me, toPeer)
 
 		// the peer's state changed during the RPC
-		if rf.currentTerm > term || rf.role != RoleCandidate {
+		if rf.CurrentTerm > term || rf.role != RoleCandidate {
 			return false
 		}
 		rf.candidateVoteCount++
@@ -83,8 +83,8 @@ func (rf *Raft) gatherVotes(me int, term int) {
 		args := RequestVoteArgs{}
 		args.Term = term
 		args.CandidateId = me
-		args.LastLogIndex = rf.log[len(rf.log) - 1].Index
-		args.LastLogTerm = rf.log[len(rf.log) - 1].Term
+		args.LastLogIndex = rf.Log[len(rf.Log) - 1].Index
+		args.LastLogTerm = rf.Log[len(rf.Log) - 1].Term
 
 		reply := RequestVoteReply{}
 
