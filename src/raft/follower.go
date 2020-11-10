@@ -18,36 +18,35 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
-	// If RPC request or response contains term T > CurrentTerm:
-	//set CurrentTerm = T, convert to follower (§5.1)
-	if args.Term > rf.CurrentTerm {
-		rf.tryConvertToFollower(rf.me, rf.CurrentTerm, args.Term)
-	}
-
-	// If votedFor is null or candidateId
-	if rf.VoteFor != -1 && rf.VoteFor != args.CandidateId {
-		DPrintf("[%d][RequestVote] rej, can't satisfy 'If votedFor is null or candidateId'", rf.me)
-		return
-	}
-
 	// rf.VoteFor is null or vote for it self (state = candidate, vote for itself / follower)
 	// and candidate’s Log is at least as up-to-date as receiver’s Log, grant vote
 	selfLastLogIndex := rf.Log[len(rf.Log) - 1].Index
 	selfLastLogTerm := rf.Log[len(rf.Log) - 1].Term
 	DPrintf("[%d][RequestVote] selfLastLog: [%d, %d] candidateLastLog: [%d, %d], VoteFor: %d, args.Term: %d, rf.term: %d",
 		rf.me, selfLastLogIndex, selfLastLogTerm, args.LastLogIndex, args.LastLogTerm, rf.VoteFor, args.Term, rf.CurrentTerm)
-	if (rf.VoteFor == -1 || rf.VoteFor == args.CandidateId) &&
-		(args.LastLogTerm > selfLastLogTerm ||
+	if !(args.LastLogTerm > selfLastLogTerm ||
 			(args.LastLogTerm == selfLastLogTerm && args.LastLogIndex >= selfLastLogIndex)) {
-		reply.VoteGranted = true
-		rf.VoteFor = args.CandidateId
-		rf.persist()
-		DPrintf("[%d][RequestVote] %d vote for %d", rf.me, rf.me, rf.VoteFor)
-
-		if args.CandidateId != rf.me {
-			rf.role = RoleFollower
-		}
+		DPrintf("[%d][RequestVote] failed log more up-to-date check", rf.me)
+		return
 	}
+
+	// If RPC request or response contains term T > CurrentTerm:
+	//set CurrentTerm = T, convert to follower (§5.1)
+	if args.Term > rf.CurrentTerm {
+		rf.tryConvertToFollower(rf.me, rf.CurrentTerm, args.Term)
+	}
+
+	// check If votedFor is null or candidateId
+	if rf.VoteFor != -1 && rf.VoteFor != args.CandidateId {
+		DPrintf("[%d][RequestVote] rej, can't satisfy 'If votedFor is null or candidateId'", rf.me)
+		return
+	}
+
+
+	reply.VoteGranted = true
+	rf.VoteFor = args.CandidateId
+	rf.persist()
+	DPrintf("[%d][RequestVote] %d vote for %d", rf.me, rf.me, rf.VoteFor)
 
 }
 
