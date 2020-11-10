@@ -18,9 +18,15 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
-	// If peer itself is leader, and the candidate's term less then self's, return false
-	if rf.role == RoleLeader && rf.currentTerm == args.Term {
-		DPrintf("[%d][RequestVote] rej, If peer itself is leader, and the candidate's term less then self's", rf.me)
+	// If RPC request or response contains term T > currentTerm:
+	//set currentTerm = T, convert to follower (§5.1)
+	if args.Term > rf.currentTerm {
+		rf.tryConvertToFollower(rf.me, rf.currentTerm, args.Term)
+	}
+
+	// If votedFor is null or candidateId
+	if rf.voteFor != -1 && rf.voteFor != args.CandidateId {
+		DPrintf("[%d][RequestVote] rej, can't satisfy 'If votedFor is null or candidateId'", rf.me)
 		return
 	}
 
@@ -43,44 +49,43 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		}
 	}
 
-	// if a new candidate's log is older than self's (result in not vote)
-	// still update self's term to keep up-to-date
-	if (args.Term > rf.currentTerm) {
-		rf.currentTerm = args.Term
-	}
 }
 
 // Respond to RPCs from candidates and leaders
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
+	defer rf.mu.Unlock()
 
 	// Reply false if term < currentTerm (§5.1)
 	reply.Term = rf.currentTerm
 	reply.Success = false
 	if args.Term < rf.currentTerm {
-		//DPrintf("[%d][AppendEntries] Reply false if term < currentTerm",
-		//	rf.me)
+		DPrintf("[%d][AppendEntries] Reply false if term < currentTerm",
+			rf.me)
+		return
+	}
+
+	// If RPC request or response contains term T > currentTerm:
+	//set currentTerm = T, convert to follower (§5.1)
+	if args.Term > rf.currentTerm {
+		rf.tryConvertToFollower(rf.me, rf.currentTerm, args.Term)
+	}
+
+	if !(rf.role == RoleFollower || (rf.role == RoleLeader && rf.me == args.LeaderId)) {
 		return
 	}
 
 	//  Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
 	if args.PrevLogIndex >= len(rf.log) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
-		//DPrintf("[%d][AppendEntries] Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm",
-		//	rf.me)
+		DPrintf("[%d][AppendEntries] Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm",
+			rf.me)
 		return
 	}
 
 	// reply success
 	reply.Success = true
 	rf.currentTerm = args.Term
-	reply.Term = rf.currentTerm
-
-	// If AppendEntries RPC received from new leader: convert to
-	// follower
-	if args.LeaderId != rf.me {
-		rf.role = RoleFollower
-	}
 
 	rf.lastHeatBeatTime = time.Now()
 
@@ -142,7 +147,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		}
 	}
 
-	rf.mu.Unlock()
 }
 
 

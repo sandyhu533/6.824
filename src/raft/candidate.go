@@ -47,15 +47,17 @@ func (rf *Raft) sendRequestVote(me int, toPeer int, term int, args *RequestVoteA
 	// If RPC request or response contains Term T > currentTerm:
 	// set currentTerm = T, convert to follower (§5.1)
 
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	if !ok || !reply.VoteGranted {
 		DPrintf("[%d][sendRequestVote] fail to receive vote from %d", me, toPeer)
 		rf.tryConvertToFollower(me, term, reply.Term)
 	} else {
 		DPrintf("[%d][sendRequestVote] received vote from %d", me, toPeer)
-		rf.mu.Lock()
+
 		// the peer's state changed during the RPC
 		if rf.currentTerm > term || rf.role != RoleCandidate {
-			rf.mu.Unlock()
 			return false
 		}
 		rf.candidateVoteCount++
@@ -64,7 +66,6 @@ func (rf *Raft) sendRequestVote(me int, toPeer int, term int, args *RequestVoteA
 			DPrintf("[%d][gatherVotes] received from majority of servers(%d): become leader", me, rf.candidateVoteCount)
 			rf.leaderInit(me, term)
 		}
-		rf.mu.Unlock()
 	}
 	return ok
 }
@@ -73,6 +74,8 @@ func (rf *Raft) sendRequestVote(me int, toPeer int, term int, args *RequestVoteA
 func (rf *Raft) gatherVotes(me int, term int) {
 
 	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	DPrintf("[%d][gatherVotes] do candidate", me)
 	rf.candidateVoteCount = 0
 
@@ -87,5 +90,5 @@ func (rf *Raft) gatherVotes(me int, term int) {
 
 		go rf.sendRequestVote(me, i, term, &args, &reply)
 	}
-	rf.mu.Unlock()
+
 }

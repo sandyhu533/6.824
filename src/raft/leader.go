@@ -45,6 +45,9 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 	// If RPC request or response contains term T > currentTerm:
 	// set currentTerm = T, convert to follower (§5.1)
 
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	if !ok {
 		DPrintf("[%d][sendAppendEntries] send to %d not ok", me, i)
 	} else if !reply.Success {
@@ -56,9 +59,8 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 				errors.New("next index go down to 0")
 				return ok
 			}
-			rf.mu.Lock()
 
-			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i])
+			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i] - 1)
 			rf.nextIndex[i]--
 			args := AppendEntriesArgs{}
 			args.Term = term
@@ -71,13 +73,10 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 			reply := AppendEntriesReply{}
 
 			go rf.sendAppendEntries(me, i, term, &args, &reply)
-
-			rf.mu.Unlock()
 		}
 	} else {
 		//DPrintf("[%d][sendAppendEntries] append entry to %d", me, i)
 		if len(args.Entries) >= 1 {
-			rf.mu.Lock()
 			DPrintf("[%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, i, args.Entries[len(args.Entries) - 1].Index)
 			rf.nextIndex[i] = args.Entries[len(args.Entries) - 1].Index + 1
 			rf.matchIndex[i] = args.Entries[len(args.Entries) - 1].Index
@@ -104,7 +103,6 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 					break
 				}
 			}
-			rf.mu.Unlock()
 		}
 	}
 
@@ -137,6 +135,7 @@ func (rf *Raft) sendHeartBeat(me int, term int) {
 			}
 
 			if rf.killed() {
+				rf.mu.Unlock()
 				return
 			}
 

@@ -18,16 +18,15 @@ package raft
 //
 
 import (
+	//"bytes"
 	"math/rand"
 	"sync"
 	"time"
 )
+
 import "sync/atomic"
 import "../labrpc"
-
-// import "bytes"
-// import "../labgob"
-
+//import "../labgob"
 
 
 //
@@ -124,12 +123,12 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// PickWork:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
+	//w := new(bytes.Buffer)
+	//e := labgob.NewEncoder(w)
+	//e.Encode(rf.xxx)
+	//e.Encode(rf.yyy)
+	//data := w.Bytes()
+	//rf.persister.SaveRaftState(data)
 }
 
 
@@ -157,9 +156,7 @@ func (rf *Raft) readPersist(data []byte) {
 
 // when a candidate or leader receive a Term message larger than itself, it convert to follower
 func (rf *Raft) tryConvertToFollower(me int, term int, nTerm int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	if nTerm > rf.currentTerm {
+	if nTerm > term {
 		DPrintf("[%d][tryConvertToFollower] do follower", me)
 		rf.currentTerm = nTerm
 		rf.role = RoleFollower
