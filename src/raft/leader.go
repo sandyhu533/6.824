@@ -49,6 +49,14 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	if rf.killed() {
+		return ok
+	}
+
+	if rf.role != RoleLeader || rf.CurrentTerm != term {
+		return ok
+	}
+
 	if !ok {
 		DPrintf("[%d][sendAppendEntries] send to %d not ok", me, i)
 	} else if !reply.Success {
@@ -65,12 +73,6 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 			if reply.FLastLogIndex < len(rf.Log) && rf.Log[reply.FLastLogIndex].Term == reply.FLastLogTerm {
 				rf.nextIndex[i] = reply.FLastLogIndex + 1
 			} else {
-				//ni := rf.nextIndex[i] - 1
-				//for ni > 0 && rf.Log[ni].Term == rf.Log[rf.nextIndex[i] - 1].Term {
-				//	ni--
-				//}
-				//rf.nextIndex[i] = ni + 1
-
 				// use binary search to find the biggest index which term < reply.FLastLogTerm
 				l, r := 0, len(rf.Log) - 1
 				for l < r {
