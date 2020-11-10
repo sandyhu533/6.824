@@ -21,6 +21,8 @@ type AppendEntriesReply struct {
 func (rf *Raft) leaderInit(me int, term int) {
 	rf.role = RoleLeader
 	rf.VoteFor = -1
+	rf.persist()
+
 	rf.lastHeatBeatTime = time.Now()
 	// for each server, index of the next Log entry
 	// to send to that server (initialized to leader

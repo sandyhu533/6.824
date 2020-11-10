@@ -18,15 +18,16 @@ package raft
 //
 
 import (
-	//"bytes"
+	"bytes"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
 
 import "sync/atomic"
 import "../labrpc"
-//import "../labgob"
+import "../labgob"
 
 
 //
@@ -122,14 +123,25 @@ func (rf *Raft) GetState() (int, bool) {
 // see paper's Figure 2 for a description of what should be persistent.
 //
 func (rf *Raft) persist() {
-	// Your code here (2C).
-	// PickWork:
-	//w := new(bytes.Buffer)
-	//e := labgob.NewEncoder(w)
-	//e.Encode(rf.xxx)
-	//e.Encode(rf.yyy)
-	//data := w.Bytes()
-	//rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.Log)
+	e.Encode(rf.CurrentTerm)
+	e.Encode(rf.VoteFor)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
+
+	str := ""
+	for _, v := range rf.Log {
+		str += "["
+		str += strconv.Itoa(v.Index)
+		str += ", "
+		str += strconv.Itoa(v.Term)
+		str += "], "
+	}
+
+	DPrintf("[%d][persist] successfully persist, log: %s, currentTerm: %d,voteFor: %d",
+		rf.me, str, rf.CurrentTerm, rf.VoteFor)
 }
 
 
@@ -140,19 +152,32 @@ func (rf *Raft) readPersist(data []byte) {
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
 	}
-	// Your code here (2C).
-	// PickWork:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var Log []LogEntry
+	var CurrentTerm int
+	var VoteFor int
+	if d.Decode(&Log) != nil ||
+		d.Decode(&CurrentTerm) != nil ||
+		d.Decode(&VoteFor) != nil {
+		DPrintf("[%d][readPersist] error when decoding", rf.me)
+	} else {
+		rf.Log = Log
+		rf.CurrentTerm = CurrentTerm
+		rf.VoteFor = VoteFor
+
+		str := ""
+		for _, v := range rf.Log {
+			str += "["
+			str += strconv.Itoa(v.Index)
+			str += ", "
+			str += strconv.Itoa(v.Term)
+			str += "], "
+		}
+
+		DPrintf("[%d][readPersist] successfully read persist, log: %s, currentTerm: %d,voteFor: %d",
+			rf.me, str, rf.CurrentTerm, rf.VoteFor)
+	}
 }
 
 // when a candidate or leader receive a Term message larger than itself, it convert to follower
@@ -162,6 +187,7 @@ func (rf *Raft) tryConvertToFollower(me int, term int, nTerm int) {
 		rf.CurrentTerm = nTerm
 		rf.role = RoleFollower
 		rf.VoteFor = -1
+		rf.persist()
 	}
 }
 
@@ -208,6 +234,7 @@ func (rf *Raft) tryConvertToCandidate(me int) {
 			rf.role = RoleCandidate
 			rf.VoteFor = me
 			rf.CurrentTerm = rf.CurrentTerm + 1
+			rf.persist()
 			rf.lastHeatBeatTime = time.Now()
 			go rf.gatherVotes(me, rf.CurrentTerm)
 		}
@@ -255,6 +282,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 
 	rf.Log = append(rf.Log, entry)
+	rf.persist()
+
 	rf.matchIndex[rf.me] = len(rf.Log) - 1
 	rf.nextIndex[rf.me] = len(rf.Log)
 
@@ -319,6 +348,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		Term:  0,
 		Index: 0,
 	})
+
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 

@@ -36,12 +36,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	selfLastLogTerm := rf.Log[len(rf.Log) - 1].Term
 	DPrintf("[%d][RequestVote] selfLastLog: [%d, %d] candidateLastLog: [%d, %d], VoteFor: %d, args.Term: %d, rf.term: %d",
 		rf.me, selfLastLogIndex, selfLastLogTerm, args.LastLogIndex, args.LastLogTerm, rf.VoteFor, args.Term, rf.CurrentTerm)
-	if (args.Term > rf.CurrentTerm ||  rf.VoteFor == -1 || rf.VoteFor == args.CandidateId) &&
+	if (rf.VoteFor == -1 || rf.VoteFor == args.CandidateId) &&
 		(args.LastLogTerm > selfLastLogTerm ||
 			(args.LastLogTerm == selfLastLogTerm && args.LastLogIndex >= selfLastLogIndex)) {
 		reply.VoteGranted = true
 		rf.VoteFor = args.CandidateId
-		rf.CurrentTerm = args.Term
+		rf.persist()
 		DPrintf("[%d][RequestVote] %d vote for %d", rf.me, rf.me, rf.VoteFor)
 
 		if args.CandidateId != rf.me {
@@ -85,7 +85,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	// reply success
 	reply.Success = true
-	rf.CurrentTerm = args.Term
 
 	rf.lastHeatBeatTime = time.Now()
 
@@ -103,6 +102,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			// Append any new entries not already in the Log
 			rf.Log = append(rf.Log, v)
 		}
+		rf.persist()
 	}
 
 	str := ""
