@@ -20,7 +20,6 @@ package raft
 import (
 	"bytes"
 	"math/rand"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -49,9 +48,9 @@ type ApplyMsg struct {
 
 // A definition for time gap
 const (
-	MinElectionTimeOut int64 = 150 // 0.2s
-	MaxElectionTimeOut int64 = 500 // 0.5s
-	HeatBeatRate int64 = 110 // 0.15s
+	MinElectionTimeOut int64 = 120 // 0.2s
+	MaxElectionTimeOut int64 = 300 // 0.5s
+	HeatBeatRate int64 = 100 // 0.15s
 )
 
 //
@@ -132,13 +131,13 @@ func (rf *Raft) persist() {
 	rf.persister.SaveRaftState(data)
 
 	str := ""
-	for _, v := range rf.Log {
-		str += "["
-		str += strconv.Itoa(v.Index)
-		str += ", "
-		str += strconv.Itoa(v.Term)
-		str += "], "
-	}
+	//for _, v := range rf.Log {
+	//	str += "["
+	//	str += strconv.Itoa(v.Index)
+	//	str += ", "
+	//	str += strconv.Itoa(v.Term)
+	//	str += "], "
+	//}
 
 	DPrintf("[%d][persist] successfully persist, log: %s, currentTerm: %d,voteFor: %d",
 		rf.me, str, rf.CurrentTerm, rf.VoteFor)
@@ -167,13 +166,13 @@ func (rf *Raft) readPersist(data []byte) {
 		rf.VoteFor = VoteFor
 
 		str := ""
-		for _, v := range rf.Log {
-			str += "["
-			str += strconv.Itoa(v.Index)
-			str += ", "
-			str += strconv.Itoa(v.Term)
-			str += "], "
-		}
+		//for _, v := range rf.Log {
+		//	str += "["
+		//	str += strconv.Itoa(v.Index)
+		//	str += ", "
+		//	str += strconv.Itoa(v.Term)
+		//	str += "], "
+		//}
 
 		DPrintf("[%d][readPersist] successfully read persist, log: %s, currentTerm: %d,voteFor: %d",
 			rf.me, str, rf.CurrentTerm, rf.VoteFor)
