@@ -21,8 +21,6 @@ type AppendEntriesReply struct {
 
 func (rf *Raft) leaderInit(me int, term int) {
 	rf.role = RoleLeader
-	rf.VoteFor = -1
-	rf.persist()
 
 	rf.lastHeatBeatTime = time.Now()
 	// for each server, index of the next Log entry
@@ -63,18 +61,27 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 				return ok
 			}
 
-			//DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i] - 1)
-			//rf.nextIndex[i]--
 
-			// term 0 isn't a valid term, so don't do any reduce
 			if reply.FLastLogIndex < len(rf.Log) && rf.Log[reply.FLastLogIndex].Term == reply.FLastLogTerm {
 				rf.nextIndex[i] = reply.FLastLogIndex + 1
 			} else {
-				ni := rf.nextIndex[i] - 1
-				for rf.Log[ni].Term == rf.Log[rf.nextIndex[i] - 1].Term {
-					ni--
+				//ni := rf.nextIndex[i] - 1
+				//for ni > 0 && rf.Log[ni].Term == rf.Log[rf.nextIndex[i] - 1].Term {
+				//	ni--
+				//}
+				//rf.nextIndex[i] = ni + 1
+
+				// use binary search to find the biggest index which term < reply.FLastLogTerm
+				l, r := 0, len(rf.Log) - 1
+				for l < r {
+					mid := (l + r + 1) >> 1
+					if rf.Log[mid].Term < reply.FLastLogTerm {
+						l = mid
+					} else {
+						r = mid - 1
+					}
 				}
-				rf.nextIndex[i] = ni + 1
+				rf.nextIndex[i] = l + 1
 			}
 			DPrintf("[%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, i, rf.nextIndex[i])
 

@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"strconv"
 	"time"
 )
 
@@ -42,12 +41,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
-	if rf.role == RoleLeader {
-		DPrintf("[%d][RequestVote] rej, voter itself is a leader at this term!", rf.me)
-		return
-	}
-
-
 	reply.VoteGranted = true
 	rf.VoteFor = args.CandidateId
 	rf.persist()
@@ -81,13 +74,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	//  Reply false if Log doesn't contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
-	selfLastLogIndex := rf.Log[len(rf.Log) - 1].Index
-	selfLastLogTerm := rf.Log[len(rf.Log) - 1].Term
 	if args.PrevLogIndex >= len(rf.Log) || rf.Log[args.PrevLogIndex].Term != args.PrevLogTerm {
 		DPrintf("[%d][AppendEntries] Reply false if Log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm",
 			rf.me)
-		reply.FLastLogIndex = selfLastLogIndex
-		reply.FLastLogTerm = selfLastLogTerm
+		// use binary search to find the biggest index which term < args.PrevLogTerm
+		l, r := 0, len(rf.Log) - 1
+		for l < r {
+			mid := (l + r + 1) >> 1
+			if rf.Log[mid].Term < args.PrevLogIndex {
+				l = mid
+			} else {
+				r = mid - 1
+			}
+		}
+		reply.FLastLogIndex = l
+		reply.FLastLogTerm = rf.Log[l].Term
 		return
 	}
 
@@ -114,13 +115,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.persist()
 
 	str := ""
-	for _, v := range args.Entries {
-		str += "["
-		str += strconv.Itoa(v.Index)
-		str += ", "
-		str += strconv.Itoa(v.Term)
-		str += "], "
-	}
+	//for _, v := range args.Entries {
+	//	str += "["
+	//	str += strconv.Itoa(v.Index)
+	//	str += ", "
+	//	str += strconv.Itoa(v.Term)
+	//	str += "], "
+	//}
 
 	// heartbeats
 	if args.Entries != nil {
@@ -129,13 +130,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 
 	str = ""
-	for _, v := range rf.Log {
-		str += "["
-		str += strconv.Itoa(v.Index)
-		str += ", "
-		str += strconv.Itoa(v.Term)
-		str += "], "
-	}
+	//for _, v := range rf.Log {
+	//	str += "["
+	//	str += strconv.Itoa(v.Index)
+	//	str += ", "
+	//	str += strconv.Itoa(v.Term)
+	//	str += "], "
+	//}
 
 	DPrintf("[%d][AppendEntries] reply success, Log: %s", rf.me, str)
 
