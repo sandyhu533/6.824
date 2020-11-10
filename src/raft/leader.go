@@ -105,28 +105,40 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 			DPrintf("[%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, i, args.Entries[len(args.Entries) - 1].Index)
 			rf.nextIndex[i] = args.Entries[len(args.Entries) - 1].Index + 1
 			rf.matchIndex[i] = args.Entries[len(args.Entries) - 1].Index
-			// update commitIndex
+
+			// counting replication
+			newCommitIndex := rf.commitIndex
 			for {
 				ct := 0
 				for _, v := range rf.matchIndex {
-					if v >= rf.commitIndex + 1 {
+					if v >= newCommitIndex + 1 {
 						ct++
 					}
 				}
 				if ct * 2 > len(rf.peers){
 					// respond after entry applied to state machine (§5.3)
-					rf.commitIndex++
-					DPrintf("[%d][sendAppendEntries] %d committed!, term %d, cmd: %v", rf.me, rf.commitIndex,
-						rf.Log[rf.commitIndex].Term, rf.Log[rf.commitIndex].Command)
-					msg := ApplyMsg{
-						CommandValid: true,
-						Command:      rf.Log[rf.commitIndex].Command,
-						CommandIndex: rf.commitIndex,
-					}
-					rf.applyCh <- msg
+					newCommitIndex++
 				} else {
 					break
 				}
+			}
+
+			// a leader cannot determine commitment using log entries from older terms
+			if rf.Log[newCommitIndex].Term < rf.CurrentTerm {
+				return ok
+			}
+
+			// if any new entry is committed, the old entries would also be committed
+			for rf.commitIndex < newCommitIndex {
+				rf.commitIndex++
+				DPrintf("[%d][sendAppendEntries] %d committed!, term %d, cmd: %v", rf.me, rf.commitIndex,
+					rf.Log[rf.commitIndex].Term, rf.Log[rf.commitIndex].Command)
+				msg := ApplyMsg{
+					CommandValid: true,
+					Command:      rf.Log[rf.commitIndex].Command,
+					CommandIndex: rf.commitIndex,
+				}
+				rf.applyCh <- msg
 			}
 		}
 	}
