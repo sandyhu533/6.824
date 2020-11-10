@@ -18,6 +18,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
+	// If RPC request or response contains term T > CurrentTerm:
+	//set CurrentTerm = T, convert to follower (§5.1)
+	if args.Term > rf.CurrentTerm {
+		rf.tryConvertToFollower(rf.me, rf.CurrentTerm, args.Term)
+	}
+
 	// rf.VoteFor is null or vote for it self (state = candidate, vote for itself / follower)
 	// and candidate’s Log is at least as up-to-date as receiver’s Log, grant vote
 	selfLastLogIndex := rf.Log[len(rf.Log) - 1].Index
@@ -30,15 +36,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
-	// If RPC request or response contains term T > CurrentTerm:
-	//set CurrentTerm = T, convert to follower (§5.1)
-	if args.Term > rf.CurrentTerm {
-		rf.tryConvertToFollower(rf.me, rf.CurrentTerm, args.Term)
-	}
-
 	// check If votedFor is null or candidateId
 	if rf.VoteFor != -1 && rf.VoteFor != args.CandidateId {
 		DPrintf("[%d][RequestVote] rej, can't satisfy 'If votedFor is null or candidateId'", rf.me)
+		return
+	}
+
+	if rf.role == RoleLeader {
+		DPrintf("[%d][RequestVote] rej, voter itself is a leader at this term!", rf.me)
 		return
 	}
 
@@ -76,9 +81,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	//  Reply false if Log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
+	selfLastLogIndex := rf.Log[len(rf.Log) - 1].Index
+	selfLastLogTerm := rf.Log[len(rf.Log) - 1].Term
 	if args.PrevLogIndex >= len(rf.Log) || rf.Log[args.PrevLogIndex].Term != args.PrevLogTerm {
 		DPrintf("[%d][AppendEntries] Reply false if Log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm",
 			rf.me)
+		reply.FLastLogIndex = selfLastLogIndex
+		reply.FLastLogTerm = selfLastLogTerm
 		return
 	}
 
