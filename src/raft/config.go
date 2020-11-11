@@ -428,9 +428,11 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 2B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+	fmt.Printf("begin one cfg.one check, cmd: %v\n", cmd)
 	t0 := time.Now()
 	starts := 0
 	var cmdu interface{}
+	var ndu int
 	for time.Since(t0).Seconds() < 10 {
 		// try all the servers, maybe one is the leader.
 		index := -1
@@ -457,6 +459,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
+				ndu = nd
 				cmdu = cmd1
 				if nd > 0 && nd >= expectedServers {
 					// committed
@@ -464,17 +467,19 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 						// and it was the command we submitted.
 						return index
 					}
+				} else {
+					//fmt.Printf("nd(%d), less than expected server(%d)", nd, expectedServers)
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
 			if retry == false {
-				cfg.t.Fatalf("one(cmd:%v, cmd1:%v) failed to reach agreement", cmd, cmdu)
+				cfg.t.Fatalf("one(cmd:%v, cmd1:%v, nd1: %d) failed to reach agreement", cmd, cmdu, ndu)
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	cfg.t.Fatalf("one(cmd:%v, cmd1:%v) failed to reach agreement", cmd, cmdu)
+	cfg.t.Fatalf("after retry for 10s , one(cmd:%v, cmd1:%v, nd1: %d) failed to reach agreement", cmd, cmdu, ndu)
 	return -1
 }
 
