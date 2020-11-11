@@ -428,7 +428,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 2B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
-	fmt.Printf("begin one cfg.one check, cmd: %v\n", cmd)
+	//fmt.Printf("begin one cfg.one check, cmd: %v\n", cmd)
 	t0 := time.Now()
 	starts := 0
 	var cmdu interface{}
@@ -467,8 +467,6 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 						// and it was the command we submitted.
 						return index
 					}
-				} else {
-					//fmt.Printf("nd(%d), less than expected server(%d)", nd, expectedServers)
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
