@@ -176,11 +176,6 @@ func (rf *Raft) readPersist(data []byte) {
 func (rf *Raft) ElectionTimer() {
 	for {
 		rf.mu.Lock()
-		if rf.role == RoleLeader {
-			rf.mu.Unlock()
-			continue
-		}
-
 		electionTimeout := rand.Int63n(MaxElectionTimeOut - MinElectionTimeOut) + MinElectionTimeOut
 		lastHeartBeatTime := rf.lastHeatBeatTime
 		rf.mu.Unlock()
