@@ -59,6 +59,9 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 
 	if !ok {
 		DPrintf("[%d][sendAppendEntries] send to %d not ok", me, i)
+		if reply.Term > term {
+			rf.tryConvertToFollower(me, term, reply.Term)
+		}
 	} else if !reply.Success {
 		DPrintf("[%d][sendAppendEntries] fail to append entry to %d", me, i)
 		if reply.Term > term {
@@ -66,6 +69,10 @@ func (rf *Raft) sendAppendEntries(me int, i int, term int, args *AppendEntriesAr
 		} else {
 			if rf.nextIndex[i] <= 1 {
 				errors.New("next index go down to 0")
+				return ok
+			}
+
+			if rf.matchIndex[i] == len(rf.Log) {
 				return ok
 			}
 

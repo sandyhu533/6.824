@@ -48,7 +48,7 @@ type ApplyMsg struct {
 
 // A definition for time gap
 const (
-	MinElectionTimeOut int64 = 120 // 0.2s
+	MinElectionTimeOut int64 = 150 // 0.2s
 	MaxElectionTimeOut int64 = 300 // 0.5s
 	HeatBeatRate int64 = 100 // 0.15s
 )
