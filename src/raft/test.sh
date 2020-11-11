@@ -1,12 +1,12 @@
 # shellcheck disable=SC1072
-for (( i = 0; i < 5; i++ )); do {
+for (( i = 0; i < 3; i++ )); do {
     name="out-${i}";
   ct=0;
   go test > ${name}
   if [ "$(grep FAIL ${name})" == "" ];
   then
       rm -f ${name}
-      ct++;
+      ct=ct+1;
   else
     echo "test case union - ${i} failed!"
   fi;
@@ -26,7 +26,7 @@ for ((j = 0; j < ${#unit_test_arr[*]}; j++)); do {
     if [ "$(grep FAIL ${name})" == "" ];
     then
         rm -f ${name}
-        ct++;
+        ct=ct+1;
     else
       echo "test case ${unit_test_arr[j]} - ${i} failed!"
     fi;
