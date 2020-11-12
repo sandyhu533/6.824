@@ -433,6 +433,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 	starts := 0
 	var cmdu interface{}
 	var ndu int
+	var indexu int
 	for time.Since(t0).Seconds() < 10 {
 		// try all the servers, maybe one is the leader.
 		index := -1
@@ -448,6 +449,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				index1, _, ok := rf.Start(cmd)
 				if ok {
 					index = index1
+					indexu = index
 					break
 				}
 			}
@@ -471,13 +473,13 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				time.Sleep(20 * time.Millisecond)
 			}
 			if retry == false {
-				cfg.t.Fatalf("one(cmd:%v, cmd1:%v, nd1: %d) failed to reach agreement", cmd, cmdu, ndu)
+				cfg.t.Fatalf("no retry, one(cmd:%v, cmd1:%v, nd1: %d, index: %d) failed to reach agreement", cmd, cmdu, ndu, indexu)
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	cfg.t.Fatalf("after retry for 10s , one(cmd:%v, cmd1:%v, nd1: %d) failed to reach agreement", cmd, cmdu, ndu)
+	cfg.t.Fatalf("after retry for 10s , one(cmd:%v, cmd1:%v, nd1: %d, index: %d) failed to reach agreement", cmd, cmdu, ndu, indexu)
 	return -1
 }
 
