@@ -233,10 +233,13 @@ func (rf *Raft) CandidateInit() {
 	rf.lastHeatBeatTime = time.Now()
 	rf.setCurrentTerm(rf.CurrentTerm + 1)
 
-	rf.candidateVoteCount = 0
+	rf.candidateVoteCount = 1
 
 	// send request vote RPCs
 	for i, _ := range rf.peers {
+		if i == rf.me {
+			continue
+		}
 		args := RequestVoteArgs{}
 		args.Term = rf.CurrentTerm
 		args.CandidateId = rf.me
@@ -296,8 +299,11 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 		DPrintf("[%d][%s][%d][sendRequestVote] received vote from %d", rf.me, rf.role, rf.CurrentTerm, server)
 		rf.candidateVoteCount++
 		// If votes received from majority of servers: try become leader
+		DPrintf("[%d][%s][%d][sendRequestVote] received candidateVoteCount: %d",rf.me,
+			rf.role, rf.CurrentTerm, rf.candidateVoteCount)
 		if rf.candidateVoteCount * 2 > len(rf.peers) {
-			DPrintf("[%d][%s][%d][gatherVotes] received from majority of servers(%d): try become leader", rf.me, rf.role, rf.CurrentTerm, rf.candidateVoteCount)
+			DPrintf("[%d][%s][%d][sendRequestVote] received from majority of servers(%d): try become leader",
+				rf.me, rf.role, rf.CurrentTerm, rf.candidateVoteCount)
 			rf.RoleTransferStateMachine(WinElectionEvent)
 		}
 	}
@@ -451,6 +457,15 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.cond.Signal()
 	}
 
+}
+
+func serializeInt(arr []int) string {
+	str := ""
+	for _, v := range arr {
+		str += strconv.Itoa(v)
+		str += ", "
+	}
+	return str
 }
 
 func serialize(log []LogEntry) string {
@@ -611,7 +626,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		// can find the pre index in leader's log
 		if reply.FLastLogIndex < len(rf.Log) && rf.Log[reply.FLastLogIndex].Term == reply.FLastLogTerm {
 			rf.nextIndex[server] = reply.FLastLogIndex + 1
-			rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
+			rf.matchIndex[server] = rf.nextIndex[server] - 1
+			//rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
 		} else {
 			// use binary search to find the biggest index which term < reply.FLastLogTerm
 			l, r := 0, len(rf.Log) - 1
@@ -641,8 +657,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 
 		if len(args.Entries) >= 1 {
 			DPrintf("[%d][%s][%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, rf.role, rf.CurrentTerm, server, args.Entries[len(args.Entries) - 1].Index)
-			rf.nextIndex[server] = args.Entries[len(args.Entries) - 1].Index + 1
-			rf.matchIndex[server] = args.Entries[len(args.Entries) - 1].Index
+			rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
+			rf.nextIndex[server] = rf.matchIndex[server] + 1
 
 			// counting replication
 			newCommitIndex := rf.commitIndex
@@ -667,8 +683,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			}
 
 			rf.commitIndex = newCommitIndex
-			DPrintf("[%d][%s][%d][sendAppendEntries] update commitIndex: %d, term %d", rf.me, rf.role, rf.CurrentTerm, rf.commitIndex,
-			rf.Log[rf.commitIndex].Term)
+			DPrintf("[%d][%s][%d][sendAppendEntries] update commitIndex: %d, term %d, commitIndex: %s",
+				rf.me, rf.role, rf.CurrentTerm, rf.commitIndex, rf.Log[rf.commitIndex].Term, serializeInt(rf.matchIndex))
 			rf.cond.Signal()
 		}
 	}
