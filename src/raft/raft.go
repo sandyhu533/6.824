@@ -288,6 +288,14 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 	if !ok {
 		DPrintf("[%d][%s][%d][sendRequestVote] fail to receive vote from %d due to network issue", rf.me, rf.role, rf.CurrentTerm, server)
+		// manual retry
+		nArgs := RequestVoteArgs{}
+		nArgs.CandidateId = args.CandidateId
+		nArgs.Term = args.Term
+		nArgs.LastLogIndex = len(rf.Log) - 1
+		nArgs.LastLogTerm = rf.Log[nArgs.LastLogTerm].Term
+		nReply := RequestVoteReply{}
+		go rf.sendRequestVote(server, &nArgs, &nReply)
 		return
 	}
 
@@ -521,15 +529,16 @@ func (rf *Raft) HeartBeat(term int) {
 		DPrintf("[%d][%s][%d][HeartBeat] send heart beat %s", rf.me, rf.role, rf.CurrentTerm, str)
 
 		for i, _ := range rf.peers {
-			if i == rf.me {
-				rf.lastHeatBeatTime = time.Now()
-				continue
-			}
 
 			// check this goroutine stale or not
 			if rf.CurrentTerm > term || rf.role != RoleLeader {
 				rf.mu.Unlock()
 				return
+			}
+
+			if i == rf.me {
+				rf.lastHeatBeatTime = time.Now()
+				continue
 			}
 
 			if rf.killed() {
@@ -605,6 +614,10 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 
 	if !ok {
 		DPrintf("[%d][%s][%d][sendAppendEntries] fail to send entry to %d due to network issue", rf.me, rf.role, rf.CurrentTerm, server)
+		// manual retry
+		nArgs := AppendEntriesArgs{}
+		nReply := AppendEntriesReply{}
+		go rf.sendAppendEntries(server, &nArgs, &nReply)
 		return
 	}
 
@@ -644,9 +657,6 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		DPrintf("[%d][%s][%d][sendAppendEntries] update %d's nextIndex: %d", rf.me, rf.role, rf.CurrentTerm, server, rf.nextIndex[server])
 
 		nArgs := AppendEntriesArgs{}
-		//nArgs.Term = args.Term
-		//nArgs.LeaderId = args.LeaderId
-		//nArgs.LeaderCommit = rf.commitIndex
 
 		nReply := AppendEntriesReply{}
 
