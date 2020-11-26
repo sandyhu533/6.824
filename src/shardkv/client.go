@@ -113,7 +113,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			for si := 0; si < len(servers); si++ {
 				srv := ck.make_end(servers[si])
 				var reply PutAppendReply
-				ok := srv.Call("ShardKV.PutAppend", &args, &reply)
+				ok := srv.Call("ShardKV.GetPutAppend", &args, &reply)
 				if ok && reply.Err == OK {
 					return
 				}

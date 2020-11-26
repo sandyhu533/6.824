@@ -20,17 +20,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="81855c97-b3b6-461e-b84d-0adfaf4cafb4" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-31-2" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-34-0" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-40-2" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-46-0" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-46-1" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-46-2" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-46-3" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestFigure8Unreliable2C-46-4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/raft/out-TestRPCBytes2B-45-3" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kvraft/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/kvraft/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kvraft/common.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/kvraft/common.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kvraft/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/kvraft/server.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/raft/raft.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/raft.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/test.sh" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/test.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/shardkv/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/shardkv/client.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -112,10 +108,10 @@
       <screen x="0" y="23" width="1440" height="877" />
     </state>
     <state x="184" y="123" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.23.1440.877@0.23.1440.877" timestamp="1604837610283" />
-    <state x="458" y="270" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1605171073959">
+    <state x="458" y="270" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1605243590287">
       <screen x="0" y="23" width="1440" height="877" />
     </state>
-    <state x="458" y="270" key="#com.intellij.fileTypes.FileTypeChooser/0.23.1440.877@0.23.1440.877" timestamp="1605171073959" />
+    <state x="458" y="270" key="#com.intellij.fileTypes.FileTypeChooser/0.23.1440.877@0.23.1440.877" timestamp="1605243590287" />
     <state x="100" y="123" width="1240" height="677" key="DiffContextDialog" timestamp="1605080122039">
       <screen x="0" y="23" width="1440" height="877" />
     </state>
@@ -144,9 +140,9 @@
       <screen x="0" y="23" width="1440" height="877" />
     </state>
     <state x="571" y="383" key="VCS.ChangelistChooser/0.23.1440.877@0.23.1440.877" timestamp="1605079323694" />
-    <state x="385" y="213" width="670" height="676" key="search.everywhere.popup" timestamp="1604846215085">
+    <state x="385" y="213" width="670" height="676" key="search.everywhere.popup" timestamp="1606406037692">
       <screen x="0" y="23" width="1440" height="877" />
     </state>
-    <state x="385" y="213" width="670" height="676" key="search.everywhere.popup/0.23.1440.877@0.23.1440.877" timestamp="1604846215085" />
+    <state x="385" y="213" width="670" height="676" key="search.everywhere.popup/0.23.1440.877@0.23.1440.877" timestamp="1606406037692" />
   </component>
 </project>

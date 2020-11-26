@@ -3,26 +3,24 @@ package kvraft
 import (
 	"../labgob"
 	"../labrpc"
-	"log"
 	"../raft"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
-const Debug = 0
 
-func DPrintf(format string, a ...interface{}) (n int, err error) {
-	if Debug > 0 {
-		log.Printf(format, a...)
-	}
-	return
-}
-
+const (
+	OpPut = "Put"
+	OpAppend = "Append"
+	OpGet = "Get"
+)
 
 type Op struct {
-	// Your definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
+	Type string // Put, Append, Get
+	Key string
+	Value string
+	UniqueRequestId string
 }
 
 type KVServer struct {
@@ -34,17 +32,73 @@ type KVServer struct {
 
 	maxraftstate int // snapshot if log grows this big
 
-	// Your definitions here.
+	cond *sync.Cond
+	kvData map[string]string
+	request map[string]string
 }
 
+func (kv *KVServer) GetPutAppend(args *GetPutAppendArgs, reply *GetPutAppendReply) {
+	// first check if it's a leader
+	_, isLeader := kv.rf.GetState()
+	if !isLeader {
+		//DPrintf("[%d][%s][Server][GetPutAppend] peer isn't a leader", kv.me, args.UniqueRequestId)
+		reply.Err = ErrWrongLeader
+		return
+	}
 
-func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
-	// Your code here.
+	kv.mu.Lock()
+	// check repeat(committed)
+	v, ok := kv.request[args.UniqueRequestId]
+	if ok {
+		reply.Err = OK
+		reply.Success = true
+		reply.Value = v
+		kv.mu.Unlock()
+		return
+	}
+	kv.mu.Unlock()
+
+	op := Op{
+		Type:  args.Op,
+		Key:   args.Key,
+		Value: args.Value,
+		UniqueRequestId : args.UniqueRequestId,
+	}
+
+	// check repeat(uncommitted)
+	if kv.rf.CheckReadyToCommit(op) {
+		reply.Success = false
+		return
+	}
+
+	// then commit it and wait for the result
+	_, _, isLeader2 := kv.rf.Start(op)
+	if !isLeader2 {
+		reply.Success = false
+		reply.Err = ErrWrongLeader
+		return
+	}
+
+	DPrintf("[%d][%s][Server][GetPutAppend] committed and wait", kv.me, args.UniqueRequestId)
+
+	for {
+		// wait until kv.request is changed
+		kv.mu.Lock()
+		v, ok := kv.request[args.UniqueRequestId]
+		if ok {
+			reply.Err = OK
+			reply.Success = true
+			reply.Value = v
+		}
+		kv.mu.Unlock()
+		_, isLeader3 := kv.rf.GetState()
+		if ok || kv.killed() || !isLeader3 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
-func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
-	// Your code here.
-}
 
 //
 // the tester calls Kill() when a KVServer instance won't
@@ -90,12 +144,51 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.me = me
 	kv.maxraftstate = maxraftstate
 
-	// You may need initialization code here.
+	kv.cond = sync.NewCond(new(sync.Mutex))
+	kv.kvData = make(map[string]string)
+	kv.request = make(map[string]string)
 
 	kv.applyCh = make(chan raft.ApplyMsg)
-	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
+	go func() {
+		for m := range kv.applyCh {
+			if m.CommandValid == false {
+				// ignore other types of ApplyMsg
+			} else {
+				//DPrintf("[%d][ApplyCh] cmd: %s", kv.me, m.Command)
+				kv.mu.Lock()
+				//DPrintf("[%d][ApplyCh] get lock", kv.me)
+				v := m.Command.(Op)
+				res := ""
+				switch v.Type {
+				case OpGet:
+					{
+						res = kv.kvData[v.Key]
+						//DPrintf("[%d][ApplyCh] key:%s value:%s", kv.me, v.Key, res)
+					}
+				case OpPut:
+					{
+						kv.kvData[v.Key] = v.Value
+						//DPrintf("[%d][ApplyCh] key:%s newValue:%s", kv.me, v.Key, kv.kvData[v.Key])
+					}
+				case OpAppend:
+					{
+						kv.kvData[v.Key] = kv.kvData[v.Key] + v.Value
+						//DPrintf("[%d][ApplyCh] key:%s newValue:%s", kv.me, v.Key, kv.kvData[v.Key])
+					}
+				}
+				kv.request[v.UniqueRequestId] = res
+				kv.mu.Unlock()
+				//DPrintf("[%d][applyCh] release lock", kv.me)
+				//kv.cond.Broadcast() // wake up all waiting goroutines
+			}
 
-	// You may need initialization code here.
+			if kv.killed() {
+				return
+			}
+		}
+	}()
+
+	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	return kv
 }
