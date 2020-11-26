@@ -178,17 +178,17 @@ func (rf *Raft) ElectionTimer() {
 		rf.mu.Lock()
 		electionTimeout := rand.Int63n(MaxElectionTimeOut - MinElectionTimeOut) + MinElectionTimeOut
 		lastHeartBeatTime := rf.lastHeatBeatTime
-		rf.mu.Unlock()
 
 		DPrintf("[%d][%s][%d][ElectionTimer] sleep for(electionTimeout): %d", rf.me, rf.role, rf.CurrentTerm, electionTimeout)
+		rf.mu.Unlock()
 
 		time.Sleep(time.Millisecond * time.Duration(electionTimeout))
 
+		rf.mu.Lock()
 		if rf.killed() {
+			rf.mu.Unlock()
 			return
 		}
-
-		rf.mu.Lock()
 
 		if rf.role == RoleLeader || !rf.lastHeatBeatTime.Equal(lastHeartBeatTime) {
 			DPrintf("[%d][%s][%d][ElectionTimer] give up: %d", rf.me, rf.role, rf.CurrentTerm, electionTimeout)
@@ -264,7 +264,10 @@ type RequestVoteReply struct {
 
 // should be called with a new go routine
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) {
+	rf.mu.Lock()
 	DPrintf("[%d][%s][%d][sendRequestVote] send request vote to %d", rf.me, rf.role, rf.CurrentTerm, server)
+	rf.mu.Unlock()
+
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
 
 	rf.mu.Lock()
@@ -515,7 +518,7 @@ func (rf *Raft) LeaderInit() {
 
 // should be called with a new go routine
 func (rf *Raft) HeartBeat(term int) {
-	DPrintf("[%d][%s][%d][HeartBeat] start heart beating", rf.me, rf.role, rf.CurrentTerm)
+	//DPrintf("[%d][%s][%d][HeartBeat] start heart beating", rf.me, rf.role, rf.CurrentTerm)
 	for {
 		str := ""
 		rf.mu.Lock()
@@ -583,10 +586,12 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	args.PrevLogIndex = rf.nextIndex[server] - 1
 	args.PrevLogTerm = rf.Log[args.PrevLogIndex].Term
 	args.Entries = rf.Log[rf.nextIndex[server]:]
-	rf.mu.Unlock()
 
 	DPrintf("[%d][%s][%d][sendAppendEntries] send append entry to %d, args.PrevLogIndex: %d, args.PrevLogTerm: %d",
 		rf.me, rf.role, rf.CurrentTerm, server, args.PrevLogIndex, args.PrevLogTerm)
+
+	rf.mu.Unlock()
+
 
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
@@ -863,9 +868,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) applyMsg() {
-	for !rf.killed() {
+	for {
 		rf.cond.L.Lock()
 		rf.cond.Wait()
+		rf.mu.Lock()
 		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 			DPrintf("[%d][%s][%d][applyMsg] index %d applied!, term %d, cmd %v", rf.me, rf.role, rf.CurrentTerm, i, rf.Log[i].Term, rf.Log[i].Command)
 			msg := ApplyMsg{
@@ -876,6 +882,12 @@ func (rf *Raft) applyMsg() {
 			rf.applyCh <- msg
 		}
 		rf.lastApplied = rf.commitIndex
+		if rf.killed() {
+			rf.mu.Unlock()
+			rf.cond.L.Unlock()
+			break
+		}
+		rf.mu.Unlock()
 		rf.cond.L.Unlock()
 	}
 }
