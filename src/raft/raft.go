@@ -119,7 +119,7 @@ func (rf *Raft) GetState() (int, bool) {
 	rf.mu.Lock()
 	term = rf.CurrentTerm
 	isLeader = rf.role == RoleLeader
-	DPrintf("[%d][%s][%d][GetState] Term:%d role:%s", rf.me, rf.role, rf.CurrentTerm, term, rf.role)
+	//DPrintf("[%d][%s][%d][GetState] Term:%d role:%s", rf.me, rf.role, rf.CurrentTerm, term, rf.role)
 	rf.mu.Unlock()
 
 	return term, isLeader
@@ -511,6 +511,7 @@ func (rf *Raft) LeaderInit() {
 	for i, _ := range rf.matchIndex {
 		rf.matchIndex[i] = 0
 	}
+	rf.matchIndex[rf.me] = len(rf.Log) - 1
 
 	// send heart beat
 	go rf.HeartBeat(rf.CurrentTerm)
@@ -669,9 +670,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	}
 
 	if reply.Success {
-
-		if len(args.Entries) >= 1 {
-			DPrintf("[%d][%s][%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, rf.role, rf.CurrentTerm, server, args.Entries[len(args.Entries) - 1].Index)
+		if args.PrevLogIndex + len(args.Entries) > rf.matchIndex[server] {
+			DPrintf("[%d][%s][%d][sendAppendEntries] update %d's matchIndex: %d", rf.me, rf.role, rf.CurrentTerm, server, args.PrevLogIndex + len(args.Entries))
 			rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
 			rf.nextIndex[server] = rf.matchIndex[server] + 1
 
