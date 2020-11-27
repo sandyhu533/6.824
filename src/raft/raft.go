@@ -911,7 +911,7 @@ func arrEqual(arr1, arr2 []LogEntry) bool {
 func (rf *Raft) CheckReadyToCommit(cmd interface{}) bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	for i := rf.commitIndex + 1; i < len(rf.Log); i++ {
+	for i := 0; i < len(rf.Log); i++ {
 		if rf.Log[i].Command == cmd {
 			return true
 		}
