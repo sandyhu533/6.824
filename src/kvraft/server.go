@@ -54,6 +54,7 @@ func (kv *KVServer) GetPutAppend(args *GetPutAppendArgs, reply *GetPutAppendRepl
 		reply.Success = true
 		reply.Value = v
 		kv.mu.Unlock()
+		DPrintf("[%d][%s][Server][GetPutAppend] check repeat(committed), return", kv.me, args.UniqueRequestId)
 		return
 	}
 	kv.mu.Unlock()
@@ -68,6 +69,8 @@ func (kv *KVServer) GetPutAppend(args *GetPutAppendArgs, reply *GetPutAppendRepl
 	// check repeat(uncommitted)
 	if kv.rf.CheckReadyToCommit(op) {
 		reply.Success = false
+		time.Sleep(100 * time.Millisecond)
+		DPrintf("[%d][%s][Server][GetPutAppend] check repeat(uncommitted), return", kv.me, args.UniqueRequestId)
 		return
 	}
 
@@ -76,12 +79,18 @@ func (kv *KVServer) GetPutAppend(args *GetPutAppendArgs, reply *GetPutAppendRepl
 	if !isLeader2 {
 		reply.Success = false
 		reply.Err = ErrWrongLeader
+		DPrintf("[%d][%s][Server][GetPutAppend] peer isn't leader now, return", kv.me, args.UniqueRequestId)
 		return
 	}
 
 	DPrintf("[%d][%s][Server][GetPutAppend] committed and wait", kv.me, args.UniqueRequestId)
 
 	for {
+		_, isLeader3 := kv.rf.GetState()
+		if kv.killed() || !isLeader3 {
+			DPrintf("[%d][%s][Server][GetPutAppend] peer isn't leader now, return", kv.me, args.UniqueRequestId)
+			break
+		}
 		// wait until kv.request is changed
 		kv.mu.Lock()
 		v, ok := kv.request[args.UniqueRequestId]
@@ -91,8 +100,8 @@ func (kv *KVServer) GetPutAppend(args *GetPutAppendArgs, reply *GetPutAppendRepl
 			reply.Value = v
 		}
 		kv.mu.Unlock()
-		_, isLeader3 := kv.rf.GetState()
-		if ok || kv.killed() || !isLeader3 {
+		if ok {
+			DPrintf("[%d][%s][Server][GetPutAppend] success, return", kv.me, args.UniqueRequestId)
 			break
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -149,6 +158,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.request = make(map[string]string)
 
 	kv.applyCh = make(chan raft.ApplyMsg)
+	
 	go func() {
 		for m := range kv.applyCh {
 			if m.CommandValid == false {

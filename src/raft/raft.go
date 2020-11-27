@@ -502,7 +502,6 @@ func min(a int, b int) int {
 func (rf *Raft) LeaderInit() {
 	DPrintf("[%d][%s][%d][LeaderInit] become leader", rf.me, rf.role, rf.CurrentTerm)
 	rf.role = RoleLeader
-
 	// initialized to leader last Log index + 1
 	for i, _ := range rf.nextIndex {
 		rf.nextIndex[i] = len(rf.Log)
@@ -512,6 +511,9 @@ func (rf *Raft) LeaderInit() {
 		rf.matchIndex[i] = 0
 	}
 	rf.matchIndex[rf.me] = len(rf.Log) - 1
+
+	// send a no op when leader init (to update commitIndex)
+	go rf.Start("")
 
 	// send heart beat
 	go rf.HeartBeat(rf.CurrentTerm)
@@ -874,6 +876,10 @@ func (rf *Raft) applyMsg() {
 		rf.mu.Lock()
 		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 			DPrintf("[%d][%s][%d][applyMsg] index %d applied!, term %d, cmd %v", rf.me, rf.role, rf.CurrentTerm, i, rf.Log[i].Term, rf.Log[i].Command)
+			// skip no op
+			if rf.Log[i].Command == "" {
+				continue
+			}
 			msg := ApplyMsg{
 				CommandValid: true,
 				Command:      rf.Log[i].Command,
