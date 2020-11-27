@@ -806,8 +806,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	DPrintf("[%d][%s][%d][Kill] killed", rf.me, rf.role, rf.CurrentTerm)
 	atomic.StoreInt32(&rf.dead, 1)
 }
